@@ -1,0 +1,108 @@
+#lang plai-typed
+
+(define-type msl
+  [msl-num (n : number)]
+  [msl-add (lhs : msl) (rhs : msl)]
+  [msl-mult (lhs : msl) (rhs : msl)]
+  [msl-sub (lhs : msl) (rhs : msl)]
+  [msl-div (lhs : msl) (rhs : msl)])
+
+ ;;(msl-num 7) -> 7
+;; (msl-add (msl-num 3) (msl-num 4)) -> 7
+;; (msl-mult (msl-add (msl-num 3) (msl-num 4)) (msl-num 5)) -> 60
+
+(define (eval [expr : msl])
+  (type-case msl expr
+    [msl-num (n) n]
+    [msl-add (lhs rhs) (+ (eval lhs) (eval rhs))]
+    [msl-mult (lhs rhs) (* (eval lhs) (eval rhs))]
+    [msl-sub (lhs rhs) (- (eval lhs) (eval rhs))]
+    [msl-div (lhs rhs) (/ (eval lhs) (eval rhs))]))
+
+(test (eval (msl-num 7))  7)
+(test (eval (msl-add (msl-num 3) (msl-num 4)))  7)
+(test (eval (msl-add (msl-div (msl-num 20) (msl-num 5)) (msl-num 35)))  39)
+
+
+(define (parse [s : s-expression]) : msl
+  (cond
+    [(s-exp-number? s) (msl-num (s-exp->number s))]
+    [(s-exp-list? s)
+     (let ([sl (s-exp->list s)])
+       (case (s-exp->symbol (first sl))
+         [(+) (msl-add (parse (second sl)) (parse (third sl)))]
+         [(*) (msl-mult (parse (second sl)) (parse (third sl)))]
+         [(-) (msl-sub (parse (second sl)) (parse (third sl)))]
+         [(/) (msl-div (parse (second sl)) (parse (third sl)))]
+         [else (error 'parse "invalid list input")])
+       )]
+    [else (error 'parse "invalid input")]))
+
+(test (eval (parse '(/ (* 3 4) 6)) )  2)
+(test (parse '(/ (* 3 4) 6)) (msl-div (msl-mult (msl-num 3) (msl-num 4)) (msl-num 6)))
+(test (eval(msl-add (msl-num 4) (msl-num 2))) 6  )
+
+
+
+
+(define-type ArithC ;ArithC is for defining numbers
+  [numC (n : number)]
+  [plusC (l : ArithC) (r : ArithC)]
+  [minusC (l : ArithC) (r : ArithC)] 
+  [bminusC (l : ArithC)]
+  [multC (l : ArithC) (r : ArithC)]
+  [divC (l : ArithC) (r : ArithC)])
+
+(define (eval2 [expr : ArithC]) ;eval2 is for taking result 
+  (type-case ArithC expr
+    [numC (n) n]
+    [plusC (lhs rhs) (+ (eval2 lhs) (eval2 rhs))]
+    [minusC (lhs rhs) (- (eval2 lhs) (eval2 rhs))]  
+    [bminusC (lhs) (* (eval2 lhs) -1)] ;It makes the number negative
+    [multC (lhs rhs) (* (eval2 lhs) (eval2 rhs))]
+    [divC (lhs rhs) (/ (eval2 lhs) (eval2 rhs))]))
+
+
+(define (parse2 [s : s-expression]) : ArithC
+  (cond
+    [(s-exp-number? s) (numC (s-exp->number s))]
+    [(s-exp-list? s)
+     (let ([sl (s-exp->list s)])
+       (case (s-exp->symbol (first sl))
+         [(+) (plusC (parse2 (second sl)) (parse2 (third sl)))]
+         [(-) (minusC (parse2 (second sl)) (parse2 (third sl)))]
+         [(*) (multC (parse2 (second sl)) (parse2 (third sl)))]
+         [(/) (divC (parse2 (second sl)) (parse2 (third sl)))]
+        ; [(number s) (bminusC (parse2 (first sl)))] ;Eğer sembol değil rakam varsa; (* -3 4) ;(-3)
+
+         [else (error 'parse2 "invalid list input")])
+       
+       )]
+    [else (error 'parse2 "invalid input")]))
+
+
+
+
+
+(test (eval2(plusC (numC 4) (numC 2))) 6)
+
+(test (eval2(plusC (bminusC(numC 4)) (numC 2))) -2)
+
+(test (eval2(divC (multC (numC 3) (numC 4)) (numC 6))) (eval(msl-div (msl-mult (msl-num 3) (msl-num 4)) (msl-num 6))))
+(test (eval2(divC (multC (bminusC(numC 3)) (numC 4)) (numC 6))) (eval (parse '(/ (* -3 4) 6)) ))
+
+
+(test (eval2(divC (multC (bminusC(numC 3)) (numC 4)) (numC 6))) (eval(msl-div (msl-mult (msl-num -3) (msl-num 4)) (msl-num 6))))
+
+(test (parse2 '(/ (* 3 4) 6)) (divC (multC (numC 3) (numC 4)) (numC 6)))
+
+(test (eval2(divC (multC (bminusC(numC 3)) (numC 4)) (numC 6))) (eval2 (parse2 '(/ (* -3 4) 6)) ))
+
+(test (eval2(parse2 '(/ (* -3 4) 6))) (eval2(divC (multC (bminusC(numC 3)) (numC 4)) (numC 6))))
+
+;(test (eval2(parse2 '(/ (* (-3) 4) 6))) (eval2(divC (multC (bminusC(numC 3)) (numC 4)) (numC 6))))
+
+
+
+
+
